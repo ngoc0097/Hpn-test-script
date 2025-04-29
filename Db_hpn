@@ -1,0 +1,110 @@
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+local win = OrionLib:MakeWindow({Name="Dragon Blox Auto Farm", HidePremium=false, SaveConfig=true, ConfigFolder="DragonBloxAF"})
+_G.auto, _G.boss, _G.autoSkill, _G.selectedSkill, _G.autoKi = false, "Broly", false, "Kamehameha", true
+
+local function boostAttack()
+    for _,v in pairs(getgc(true)) do
+        if type(v)=="function" and debug.getinfo(v).name=="Attack" then
+            pcall(function()
+                setupvalue(v,1,0.01) -- cooldown attack
+                setupvalue(v,5,9999999) -- tầm đánh xa
+            end)
+        end
+    end
+end
+
+local function autoUseSkill()
+    while _G.autoSkill and task.wait(2) do
+        if _G.selectedSkill and _G.selectedSkill ~= "" then
+            game:GetService("ReplicatedStorage").Remotes.Skill:FireServer(_G.selectedSkill) -- Gửi lệnh xài skill
+        end
+    end
+end
+
+local function autoRestoreKi()
+    while _G.autoKi and task.wait(0.5) do
+        local player = game.Players.LocalPlayer
+        local character = player.Character
+        if character and character:FindFirstChild("Humanoid") then
+            local humanoid = character.Humanoid
+            local ki = humanoid:FindFirstChild("Ki") -- Ki thường nằm trong humanoid của nhân vật
+            if ki and ki.Value < 0.1 then
+                game:GetService("ReplicatedStorage").Remotes.RestoreKi:FireServer() -- Gửi lệnh hồi ki
+            end
+        end
+    end
+end
+
+local function farm()
+    boostAttack()
+    while _G.auto and task.wait(0.3) do
+        local bosses = workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("Bosses")
+        if bosses then
+            for _,b in pairs(bosses:GetChildren()) do
+                if b.Name == _G.boss and b:FindFirstChild("Humanoid") and b.Humanoid.Health > 0 then
+                    repeat
+                        local hrp = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp and b:FindFirstChild("HumanoidRootPart") then
+                            hrp.CFrame = b.HumanoidRootPart.CFrame * CFrame.new(0,0,-10) -- đứng xa boss
+                            game:GetService("ReplicatedStorage").Remotes.Attack:FireServer()
+                        end
+                        task.wait(0.1)
+                    until not _G.auto or b.Humanoid.Health <= 0
+                end
+            end
+        end
+    end
+end
+
+local tab = win:MakeTab({Name="Auto Farm", Icon="rbxassetid://4483345998", PremiumOnly=false})
+
+tab:AddDropdown({
+    Name="Chọn Boss",
+    Default="Broly",
+    Options={"Broly","Goku","Vegeta","Beerus","Jiren"},
+    Callback=function(v) _G.boss = v end
+})
+
+tab:AddToggle({
+    Name="Bật Auto Farm",
+    Default=false,
+    Callback=function(v)
+        _G.auto = v
+        if v then
+            farm()
+        end
+    end
+})
+
+tab:AddToggle({
+    Name="Auto Skill",
+    Default=false,
+    Callback=function(v)
+        _G.autoSkill = v
+        if v then
+            autoUseSkill()
+        end
+    end
+})
+
+tab:AddDropdown({
+    Name="Chọn Skill Auto",
+    Default="Kamehameha",
+    Options={"Kamehameha", "Spirit Bomb", "Big Bang Attack", "Final Flash", "Ki Blast"},
+    Callback=function(v)
+        _G.selectedSkill = v
+    end
+})
+
+tab:AddToggle({
+    Name="Tự động hồi Ki",
+    Default=true,
+    Callback=function(v)
+        _G.autoKi = v
+        if v then
+            autoRestoreKi()
+        end
+    end
+})
+
+OrionLib:Init()
