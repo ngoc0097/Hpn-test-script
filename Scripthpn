@@ -1,0 +1,78 @@
+--[[
+  Dragon Blox Auto Boss Farm Script
+  Dùng cho KRNL - Giao diện chọn boss, auto farm + server hop + đánh xa + đánh nhanh
+--]]
+
+-- Load UI Library
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+
+local Window = OrionLib:MakeWindow({Name = "Dragon Blox Auto Farm", HidePremium = false, SaveConfig = true, ConfigFolder = "DragonBloxAF"})
+
+_G.selectedBoss = "Broly"
+_G.autoFarm = false
+
+-- Function: Server Hop
+function ServerHop()
+    local HttpService = game:GetService("HttpService")
+    local servers = game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100")
+    servers = HttpService:JSONDecode(servers)
+    for _, s in pairs(servers.data) do
+        if s.playing < s.maxPlayers then
+            game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, s.id)
+            break
+        end
+    end
+end
+
+-- Function: Auto Farm Boss
+function AutoFarmBoss()
+    while _G.autoFarm and task.wait(1) do
+        local bosses = workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("Bosses")
+        if bosses then
+            for _, boss in pairs(bosses:GetChildren()) do
+                if boss.Name == _G.selectedBoss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+                    repeat
+                        -- Teleport gần boss
+                        game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, 0, -5)
+                        -- Tăng tầm đánh
+                        for _, v in pairs(getgc(true)) do
+                            if type(v) == "function" and getinfo(v).name == "Attack" then
+                                setupvalue(v, 1, 0.01) -- Giảm cooldown
+                            end
+                        end
+                        -- Đánh boss
+                        game:GetService("ReplicatedStorage").Remotes.Attack:FireServer()
+                        task.wait(0.2)
+                    until boss.Humanoid.Health <= 0 or not _G.autoFarm
+                end
+            end
+        end
+        -- Nếu không thấy boss hoặc boss đã chết, hop server
+        ServerHop()
+    end
+end
+
+-- Tab UI
+local Tab = Window:MakeTab({Name = "Auto Farm", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+
+Tab:AddDropdown({
+    Name = "Chọn Boss",
+    Default = "Broly",
+    Options = {"Broly", "Goku", "Vegeta", "Beerus", "Jiren"},
+    Callback = function(Value)
+        _G.selectedBoss = Value
+    end    
+})
+
+Tab:AddToggle({
+    Name = "Bật Auto Farm",
+    Default = false,
+    Callback = function(Value)
+        _G.autoFarm = Value
+        if Value then
+            AutoFarmBoss()
+        end
+    end    
+})
+
+OrionLib:Init()
